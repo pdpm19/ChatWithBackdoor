@@ -6,6 +6,8 @@
 3. Linux terminal with openssl
 
 ## To Do
-- [ ] GUI for Client
-- [ ] Security on client side
-- [ ] Server 
+- [x] GUI for Client
+- [ ] Security on Client side
+- [ ] Setting up Server
+- [ ] Secure connection Client-Server
+- [ ] Secure connection Client-Server-Client 
