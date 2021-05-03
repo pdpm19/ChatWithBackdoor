@@ -139,15 +139,16 @@ class GUI(QMainWindow):
    
     # Chat
     def ChatUI(self):
-        self.messageField = QTextEdit()
-        self.recipientField = QLineEdit()
+        self.chatField = QTextEdit()
+        self.chatField.setReadOnly(True)
+        self.messageField = QLineEdit()
 
-        recipient = QWidget()
-        recipientLayout = QFormLayout()
+        message = QWidget()
+        messageLayout = QFormLayout()
 
-        recipientLayout.addRow(QLabel('Recipient:'), self.recipientField)
-        recipientLayout.addRow(self.messageField)
-        recipient.setLayout(recipientLayout)    
+        messageLayout.addRow(self.chatField)
+        messageLayout.addRow(QLabel('Message:'), self.messageField)
+        message.setLayout(messageLayout)    
     
         chatBtns = QWidget()
         chatBtnsLayout = QHBoxLayout()
@@ -161,7 +162,7 @@ class GUI(QMainWindow):
         chatBtnsLayout.addWidget(chatBtn)
         chatBtns.setLayout(chatBtnsLayout)
 
-        self.chatLayout.addWidget(recipient)
+        self.chatLayout.addWidget(message)
         self.chatLayout.addWidget(chatBtns)
         self.chatWidgets.setLayout(self.chatLayout)
     
@@ -217,16 +218,16 @@ class GUI(QMainWindow):
 
     # Send Message phase
     def ChatPhase(self):
-        if self.recipientField.text() and self.messageField.toPlainText():
-            print('Message:\n%s' %self.messageField.toPlainText())
+        if self.messageField.text():
+            self.chatField.insertPlainText('eu: ' + self.messageField.text() + '\n')
         else:
             warning = QMessageBox()
             warning.setIcon(QMessageBox.Warning)
             warning.setWindowTitle('Warning')
             warning.setText('Sending Failed')
-            if self.recipientField.text() and not self.messageField.toPlainText():
+            if self.messageField.text() and not self.chatField.toPlainText():
                 warning.setInformativeText('Ups! There is no message...')
-            elif not self.recipientField.text() and self.messageField.toPlainText():
+            elif not self.messageField.text() and self.chatField.toPlainText():
                 warning.setInformativeText('Ups! There is no reciptient... :o')
             else:
                 warning.setInformativeText('Ups! All fields are empty... :/')
@@ -256,8 +257,8 @@ class GUI(QMainWindow):
         self.passwordRegisterField.clear()
         self.passwordConfirmationRegisterField.clear()
     def ChatFieldsCleaner(self):
-        self.recipientField.clear()
         self.messageField.clear()
+        self.chatField.clear()
 
 # Calls the GUI
 def GUILoad(args):
