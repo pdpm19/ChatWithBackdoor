@@ -6,10 +6,9 @@ from base64 import b64decode, b64encode
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto import Random
-from Crypto.Hash import SHA256
+from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import AES
 
-# HMAC https://pycryptodome.readthedocs.io/en/latest/src/hash/hmac.html
 # RSA https://www.dlitz.net/software/pycrypto/api/current/Crypto.public_key.RSA-module.html
 # HASH https://pycryptodome.readthedocs.io/en/latest/src/hash/hash.html
 # AES implementation
@@ -66,6 +65,22 @@ class DigitalSignature(object):
            return 1 
         except(ValueError, TypeError):
             return -1
+
+# HMAC https://pycryptodome.readthedocs.io/en/latest/src/hash/hmac.html
+class MAC(object):
+    def generate(secret, message):
+        h = HMAC.new(secret, digestmod=SHA256)
+        return h.update(message)
+
+    def validate(secret, message, mac):
+        h = HMAC.new(secret, digestmod=SHA256)
+        h.update(message)
+
+        if h.hexdigest().encode() == mac:
+            return 1
+        else:
+            return -1
+
 '''
 # Login
 def ReceiveLoginData(socketClient, AESKey, flag):
@@ -128,6 +143,16 @@ def SettingUp(public_key_path, secret_key_path):
         digital_signature = DigitalSignature.sign(ciphertext.encode(), secret_key_path)
         host.send(digital_signature)
         # Sends to client, send(c, sign)
+        ciphertext = host.recv(2048)
+
+        cipher = AESCipher(secret.encode())
+        plaintext = cipher.decrypt(ciphertext)
+        print(plaintext)
+        hmac = host.recv(2048)
+
+        # Calculate the MAC validation
+        i = MAC.validate(secret.encode(), plaintext.encode(), hmac)
+        print(i)
         
 
 if __name__ == "__main__":

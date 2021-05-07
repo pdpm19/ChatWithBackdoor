@@ -3,7 +3,7 @@ from base64 import b64decode, b64encode
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto import Random
-from Crypto.Hash import SHA256
+from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import AES
 
 host_IP = "192.168.207.15"
@@ -57,12 +57,29 @@ class DigitalSignature(object):
         key = RSA.importKey(open(public_key_path).read())
         h = SHA256.new(data=message)
         
-
         try:
            PKCS1_v1_5.new(key).verify(h, message_signed)
            return 1 
         except(ValueError, TypeError):
             return -1
+
+class MAC(object):
+    def generate(secret, message):
+        h = HMAC.new(secret, digestmod=SHA256)
+        h.update(message)
+
+        return h.hexdigest()
+
+
+    def validate(secret, message, mac):
+        h = HMAC.new(secret, digestmod=SHA256)
+        h.update(message)
+
+        if h.hexdigest().encode() == mac:
+            return 1
+        else:
+            return -1
+
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.connect((host_IP, host_PORT))
@@ -88,6 +105,17 @@ if DigitalSignature.verify(plaintext.encode(), digital_signature, server_pk_path
     print('BOAS PUTO!')
 
     # Client sends OK message
+    # Flag == 1, then Client can change messages with Server
+    secret = plaintext
+    message_flag = hex(1)
+    cipher = AESCipher(secret.encode())
+    ciphertext = cipher.encrypt(message_flag)
+   
+    server.send(ciphertext.encode())
+    
+    # HMAC
+    hmac = MAC.generate(secret.encode(), message_flag.encode())
+    server.send(hmac.encode())
 
 else:
     # Disconnect from Server
