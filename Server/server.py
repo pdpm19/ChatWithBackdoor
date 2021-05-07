@@ -10,7 +10,7 @@ from Crypto.Hash import SHA256
 from Crypto.Cipher import AES
 
 # HMAC https://pycryptodome.readthedocs.io/en/latest/src/hash/hmac.html
-# RSA https://www.dlitz.net/software/pycrypto/api/current/Crypto.PublicKey.RSA-module.html
+# RSA https://www.dlitz.net/software/pycrypto/api/current/Crypto.public_key.RSA-module.html
 # HASH https://pycryptodome.readthedocs.io/en/latest/src/hash/hash.html
 # AES implementation
 # Credits: https://medium.com/quick-code/aes-implementation-in-python-a82f582f51c2
@@ -18,13 +18,15 @@ class AESCipher(object):
     def __init__(self, key):
         self.block_size = AES.block_size
         # 16, 24 or 32 bytes
-        self.key = SHA256.new(data=key).digest()
+        self.key = SHA256.new(data=key)
+        self.key = self.key.digest()
     
     def encrypt(self, plain_text):
         plain_text = self.__pad(plain_text)
+        plain_text = plain_text.encode()
         iv = Random.new().read(self.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        encrypted_text = cipher.encrypt(plain_text.encode())
+        encrypted_text = cipher.encrypt(plain_text)
         return b64encode(iv + encrypted_text).decode("utf-8")
 
     def decrypt(self, encrypted_text):
@@ -51,19 +53,20 @@ class DigitalSignature(object):
     def sign(message, secret_key_path):
         key = RSA.importKey(open(secret_key_path).read())
         h = SHA256.new(data=message)
-        h.digest()
         
         return PKCS1_v1_5.new(key).sign(h)
 
     def verify(message, message_signed, public_key_path):
         key = RSA.importKey(open(public_key_path).read())
-        h = SHA256.new(data=message).digest()
+        h = SHA256.new(data=message)
+        
 
-        if PKCS1_v1_5.new(key).verify(h, message_signed):
-            return 1
-        else:
+        try:
+           PKCS1_v1_5.new(key).verify(h, message_signed)
+           return 1 
+        except(ValueError, TypeError):
             return -1
-
+'''
 # Login
 def ReceiveLoginData(socketClient, AESKey, flag):
     data = socketClient.recv(1024)
@@ -89,13 +92,13 @@ def ReceiveRegistryData(socketClient, AESKey, flag):
         print('ola')
     else:
         pass
-
+'''
 # Handshake
 def Handshake(socketClient):
     print('asdad')
 
 # Server
-def SettingUp(publicPath, secretPath):
+def SettingUp(public_key_path, secret_key_path):
     while True:
         # Host and Client data for debugging
         host, client = server.accept()
@@ -103,54 +106,59 @@ def SettingUp(publicPath, secretPath):
         # Generate a simetric secret in hex (s)
         # Each char ===> 4 bytes
         # So 128*4 = 512 bytes
-        secret = binascii.b2a_hex(os.urandom(128)).hex()
-        # print(secret)
+        # State of Art
+        # AES with 128 bits == 3072 bits in RSA == 256 bits in ECC
+        # 32 chars ===> 128 bits
+        secret = binascii.b2a_hex(os.urandom(32)).hex()
+        print('Segredo')
+        print(secret)
         
         # Cipher with AES c = (AES(s, pk_s))
-        publicKey = RSA.importKey(open(publicPath).read())
-        publicKey = publicKey.exportKey('PEM')
-        # print(publicKey)
-        cipher = AESCipher(publicKey)
+        public_key = RSA.importKey(open(public_key_path).read())
+        public_key = public_key.exportKey('PEM')
+        
+        cipher = AESCipher(public_key)
         ciphertext = cipher.encrypt(secret)
         
         # Every data need to be binary to send to client
         host.send(ciphertext.encode())
         
+        
         # Digital Signature h, sign = Sign(h(c), sk_s)
-        digital_signature = DigitalSignature.sign(ciphertext.encode(), secretPath)
+        digital_signature = DigitalSignature.sign(ciphertext.encode(), secret_key_path)
         host.send(digital_signature)
         # Sends to client, send(c, sign)
         
 
 if __name__ == "__main__":
     # IP and Port of Server
-    hostIP = "192.168.207.15"
-    hostPORT = 8080
-    serverPath = os.getcwd()
-    keysPath = os.path.join(serverPath, 'Keys')
+    host_IP = "192.168.207.15"
+    host_PORT = 8080
+    server_path = os.getcwd()
+    keys_path = os.path.join(server_path, 'Keys')
 
     # Checks if there is any pair of RSA keys
-    if os.path.isdir(keysPath):
+    if os.path.isdir(keys_path):
         # Needs to check if keys are there
-        publicPath = os.path.join(keysPath, 'public.pem')
-        secretPath = os.path.join(keysPath, 'secret.pem')
+        public_key_path = os.path.join(keys_path, 'public.pem')
+        secret_key_path = os.path.join(keys_path, 'secret.pem')
     # If not, creates new pair of RSA Keys and warns the user
     else:
-        os.mkdir(keysPath)
+        os.mkdir(keys_path)
         random = Random.new().read
-        RSAKey = RSA.generate(2048, random)
-        publicKey = RSAKey.publickey().exportKey()
-        secretKey = RSAKey.exportKey()
+        RSA_key = RSA.generate(2048, random)
+        public_key = RSA_key.public_key().exportKey()
+        secret_key = RSA_key.exportKey()
 
-        publicPath = os.path.join(keysPath, 'public.pem')
-        secretPath = os.path.join(keysPath, 'secret.pem')
+        public_key_path = os.path.join(keys_path, 'public.pem')
+        secret_key_path = os.path.join(keys_path, 'secret.pem')
         # Writes
 
-        file = open(publicPath, "wb")
-        file.write(publicKey)
+        file = open(public_key_path, "wb")
+        file.write(public_key)
         file.close()
-        file = open(secretPath, "wb")
-        file.write(secretKey)
+        file = open(secret_key_path, "wb")
+        file.write(secret_key)
         file.close()
     '''
     server = ""
@@ -163,9 +171,9 @@ if __name__ == "__main__":
     # Starting Up the Server
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((hostIP, hostPORT))
+    server.bind((host_IP, host_PORT))
     server.listen(0)
     # accept clients
     threading_accept = threading.Thread(
-        target=SettingUp, args=[publicPath, secretPath])
+        target=SettingUp, args=[public_key_path, secret_key_path])
     threading_accept.start()

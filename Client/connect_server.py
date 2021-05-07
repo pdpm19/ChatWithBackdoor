@@ -6,21 +6,24 @@ from Crypto import Random
 from Crypto.Hash import SHA256
 from Crypto.Cipher import AES
 
-hostIP = "192.168.207.15"
-hostPORT = 8080
+host_IP = "192.168.207.15"
+host_PORT = 8080
 
 # AES implementation
 # Credits: https://medium.com/quick-code/aes-implementation-in-python-a82f582f51c2
 class AESCipher(object):
     def __init__(self, key):
         self.block_size = AES.block_size
-        self.key = SHA256.new(data=key).digest()
+        # 16, 24 or 32 bytes
+        self.key = SHA256.new(data=key)
+        self.key = self.key.digest()
     
     def encrypt(self, plain_text):
         plain_text = self.__pad(plain_text)
+        plain_text = plain_text.encode()
         iv = Random.new().read(self.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        encrypted_text = cipher.encrypt(plain_text.encode())
+        encrypted_text = cipher.encrypt(plain_text)
         return b64encode(iv + encrypted_text).decode("utf-8")
 
     def decrypt(self, encrypted_text):
@@ -47,41 +50,49 @@ class DigitalSignature(object):
     def sign(message, secret_key_path):
         key = RSA.importKey(open(secret_key_path).read())
         h = SHA256.new(data=message)
-        h.digest()
         
         return PKCS1_v1_5.new(key).sign(h)
 
     def verify(message, message_signed, public_key_path):
         key = RSA.importKey(open(public_key_path).read())
-        h = SHA256.new(data=message).digest()
+        h = SHA256.new(data=message)
+        
 
-        if PKCS1_v1_5.new(key).verify(h, message_signed):
-            return 1
-        else:
+        try:
+           PKCS1_v1_5.new(key).verify(h, message_signed)
+           return 1 
+        except(ValueError, TypeError):
             return -1
 
-
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.connect((hostIP, hostPORT))
-clientPath = os.getcwd()
-keysPath = os.path.join(clientPath, 'Keys')
+server.connect((host_IP, host_PORT))
+client_path = os.getcwd()
+keys_path = os.path.join(client_path, 'Keys')
 
 # Client will receive symetric key
 ciphertext = server.recv(2048)
 
 # Imports Server PK (trusty apriori)
-server_pk_path = os.path.join(keysPath, 'public_server.pem')
+server_pk_path = os.path.join(keys_path, 'public_server.pem')
 server_pk = RSA.importKey(open(server_pk_path).read())
-
+server_pk = server_pk.exportKey('PEM')
 # Decipher the symetric key
 cipher = AESCipher(server_pk)
 plaintext = cipher.decrypt(ciphertext)
-print(plaintext)
 
 # Digital Signature of that Key
 digital_signature = server.recv(2048)
-print(digital_signature)
-check = DigitalSignature.verify(plaintext, digital_signature, server_pk_path)
+
+if DigitalSignature.verify(plaintext.encode(), digital_signature, server_pk_path) == 1:
+    # Digital Assignature good
+    print('BOAS PUTO!')
+
+    # Client sends OK message
+
+else:
+    # Disconnect from Server
+    print('FDD')
+
 
 while True:
     1
