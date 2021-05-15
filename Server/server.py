@@ -101,7 +101,7 @@ class MAC(object):
         h = HMAC.new(secret, digestmod=SHA256)
         h.update(message)
 
-        if h.hexdigest().encode() == mac:
+        if h.hexdigest() == mac:
             return 1
         else:
             return -1
@@ -150,7 +150,7 @@ def Handshake(host, public_key_path, secret_key_path):
     # 2nd Server will check the veracity of recived digital signature: 
     #      veracity = DigitalSignature.verify(c_pk, ass, c_pk)
     if DigitalSignature.verify(c_pk, digital_signature, client_pk_path) == -1:    
-        print('Verificade não verificada!')
+        print('Veracidade não verificada!')
         os.remove(client_pk_path)
         # --------------------------------------- #
         # CLOSES THE THREAD
@@ -174,30 +174,27 @@ def Handshake(host, public_key_path, secret_key_path):
     host.send(cipher_text)
     host.send(ass)
 
-    '''
+    
     # 5th Wait for confirmation from Client with AES
- 
-    
-    cipher = AESCipher(secret_key_path)
-    cipher_text = cipher.encrypt(secret)
+    received = host.recv(2048)
+    received = received.decode()
+    cipher_text, hmac = received.split('::')
 
-    # Every data need to be binary to send to client
-    host.send(cipher_text.encode())
-
-    # Digital Signature h: sign = Sign(h(c), sk_s)
-    digital_signature = DigitalSignature.sign(
-        cipher_text.encode(), secret_key_path)
-    host.send(digital_signature)
-    
-    # Wait for affirmative response from Client 
-    ReceiveMessages(host, secret)
-    print('Mensagem recebida!')
-    # If message is affirmative
+    cipher = AESCipher(secret.encode())
+    plain_text = cipher.decrypt(cipher_text)
+    if MAC.validate(secret.encode(), plain_text.encode(), hmac) == 1:
+        pass
+    else:
+        # Not sys.exit, but thread will close
+        sys.exit()
+    '''
+    Threads (?)
     # Saves on threadpool -> client_IP + secret
     threadpool.append(host, secret)
     print(threadpool)
-    print('Feito handshake')
     '''
+    print('Feito handshake')
+    return secret
 
 # Receive Messages (Client -> Server) 
 def ReceiveMessages(host, secret):
@@ -214,7 +211,7 @@ def ReceiveMessages(host, secret):
 
 # Send Messages (Sever -> All Clients)
 # Needs threadpool
-def SendMessages(host, secret, message):
+def SendMessage(host, secret, message):
     cipher = AESCipher(secret.encode())
     cipher_text = cipher.encrypt(message)
 
@@ -233,16 +230,11 @@ def SettingUp(server_public_key_path, server_secret_key_path):
         
         print('Handshake Phase')
         # Handshake
-        Handshake(host, server_public_key_path, server_secret_key_path)
+        secret = Handshake(host, server_public_key_path, server_secret_key_path)
         
-        print('feito')
-        global secret
-        # Change of messages
-        message = 'Bora meter lume nisto'
-        print(message)
-        message = message.encode('utf-8').hex()
-        print(message)
-        SendMessages(host, secret, message)
+        # This thread is on listening until Server gets a new message
+        # Now every time that server has a new message, he sends it to the n-client
+        #SendMessage()
  
 
 if __name__ == "__main__":

@@ -117,6 +117,23 @@ class RSAGenerator(object):
         file.write(secret_key)
         file.close()
 
+# Send Message to Server
+# server ->
+# secret -> binary
+# server_pk -> binary
+# message -> str
+def SendMessage(server, secret, server_pk,message: str):
+# 1st will create c1 = AESe(message, SHA256(s_pk))
+    cipher = AESCipher(server)
+    cipher_text1 = cipher.encrypt(message)
+    cipher = AESCipher(secret)
+    cipher_text2 = cipher.encrypt(cipher_text1.encode())
+    print(cipher_text2)
+# 2nd will do c2 = AESe(c1, secret)
+# 3rd will do hmac = HMAC(c2, secret)
+# 4th will send c2 & hmac to server
+#   c2::hmac
+
 if __name__ == "__main__":
     host_IP = "192.168.1.84"
     host_PORT = 8080
@@ -156,8 +173,9 @@ if __name__ == "__main__":
     server.connect((host_IP, host_PORT))
 
     # 1st Client will send his pk & digital signature
-    #   cipher_text = RSAe(c_pk, s_pk) & ass = Sign(SHA256(c), c_sk)
-    #   c::ass
+    #   c_pk & ass = Sign(SHA256(c_pk), c_sk)
+    #   c_pk
+    #   ass
     
     client_pk = RSA.importKey(open(public_key_path).read())
     client_pk = client_pk.exportKey('PEM')
@@ -184,7 +202,7 @@ if __name__ == "__main__":
     #   Communication is now done with AES
     secret = RSACipher.decrypt(c, secret_key_path)
     if DigitalSignature.verify(secret, digital_signature, server_pk_path) == -1:
-        print('Veraficade não verificada!')
+        print('Veracidade não verificada!')
         sys.exit()
     print('AES agora')
 
@@ -200,61 +218,10 @@ if __name__ == "__main__":
     # HMAC
     hmac = MAC.generate(secret, message_flag.encode())
     send = cipher_text + "::" + hmac
-    print(send)
     server.send(send.encode())
 
-'''
-# 5th AES communications until the end of connection
-ciphertext = server.recv(2048)
-
-# Imports Server PK (trusty apriori)
-server_pk_path = os.path.join(keys_path, 'public_server.pem')
-server_pk = RSA.importKey(open(server_pk_path).read())
-server_pk = server_pk.exportKey('PEM')
-# Decipher the symetric key
-cipher = AESCipher(server_pk)
-plaintext = cipher.decrypt(ciphertext)
-
-# Digital Signature of that Key
-digital_signature = server.recv(2048)
-
-if DigitalSignature.verify(plaintext.encode(), digital_signature, server_pk_path) == 1:
-    # Digital Assignature good
-    print('BOAS PUTO!')
-
-    # Client sends OK message
-    # Flag == 1, then Client can change messages with Server
-    secret = plaintext
-    print(secret)
-    message_flag = hex(1)
-    print(message_flag)
-    cipher = AESCipher(secret.encode())
-    ciphertext = cipher.encrypt(message_flag)
-   
-    server.send(ciphertext.encode())
-    
-    # HMAC
-    hmac = MAC.generate(secret.encode(), message_flag.encode())
-    server.send(hmac.encode())
-
-else:
-    # Disconnect from Server
-    print('FDD')
-
-# Backdoor
-message = 'Olá bro, isto aqui é super seguro....'
-
-# Client OG public key
-client_path = os.getcwd()
-keys_path = os.path.join(client_path, 'Keys')
-rsa = RSAGenerator(client_path)
-rsa.generator()
-
-
-public_key = RSA.importKey(open(public_key_path).read())
-public_key = public_key.exportKey('PEM')
-cipher = AESCipher(public_key)
-#ciphertext = 
-while True:
-    1
-'''
+    # 5th AES communications until the end of connection
+    # Client is on listening until new message from some other client
+    # Or he sends a messageAESCipher(secret.encode())
+    print(server_pk)
+    SendMessage(server, secret, server_pk, 'Olá')
