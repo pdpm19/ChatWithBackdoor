@@ -21,26 +21,24 @@ class AESCipher(object):
         # 16, 24 or 32 bytes
         self.key = SHA256.new(data=key)
         self.key = self.key.digest()
-
+    
     def encrypt(self, plain_text):
         plain_text = self.__pad(plain_text)
-        plain_text = plain_text.encode()
+        plain_text =plain_text.encode()
         iv = Random.new().read(self.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        cipher_text = cipher.encrypt(plain_text)
-        return b64encode(iv + cipher_text).decode("utf-8")
+        encrypted_text = cipher.encrypt(plain_text)
+        return b64encode(iv + encrypted_text).decode("utf-8")
 
-    def decrypt(self, cipher_text):
-        cipher_text = b64decode(cipher_text)
-        iv = cipher_text[:self.block_size]
+    def decrypt(self, encrypted_text):
+        encrypted_text = b64decode(encrypted_text)
+        iv = encrypted_text[:self.block_size]
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        plain_text = cipher.decrypt(
-            cipher_text[self.block_size:]).decode("utf-8")
+        plain_text = cipher.decrypt(encrypted_text[self.block_size:]).decode("utf-8")
         return self.__unpad(plain_text)
 
     def __pad(self, plain_text):
-        number_of_bytes_to_pad = self.block_size - \
-            len(plain_text) % self.block_size
+        number_of_bytes_to_pad = self.block_size - len(plain_text) % self.block_size
         ascii_string = chr(number_of_bytes_to_pad)
         padding_str = number_of_bytes_to_pad * ascii_string
         padded_plain_text = plain_text + padding_str
@@ -186,17 +184,14 @@ def Handshake(host, public_key_path, secret_key_path):
      
     cipher = AESCipher(secret.encode())
     plain_text = cipher.decrypt(cipher_text)
-    if MAC.validate(secret.encode(), plain_text.encode(), hmac) == 1:
-        pass
-    else:
-        # Not sys.exit, but thread will close
+    if MAC.validate(secret.encode(), plain_text.encode(), hmac) != 1:
         sys.exit()
 
     print('Feito handshake')
     return secret
 
 # Receive Messages (Client -> Server) 
-def ReceiveMessages(host, secret):
+def ReceiveMessages(host, secret, server_pk_path):
     global connections
     received = host.recv(2048)
     # 1st split the c2 from hmac
@@ -207,15 +202,35 @@ def ReceiveMessages(host, secret):
     cipher = AESCipher(secret.encode())
     cipher_text1 = cipher.decrypt(cipher_text2)
     
-    if MAC.validate(secret.encode(), cipher_text1.encode(), hmac) == 1:
-        pass
-    else:
-        # Not sys.exit(), but message cannot be shown!
-        print('O sistema vai sair!')
+    if MAC.validate(secret.encode(), cipher_text1.encode(), hmac) != 1:
         sys.exit()
 
     # 3rd decipher to plain_text & saves on log file
+    # 3.1 Reads Server PK
+    server_pk = RSA.importKey(open(server_pk_path).read())
+    server_pk = server_pk.exportKey('PEM')
+    print(cipher_text1)
+    # 3.2 Decipher
+    cipher = AESCipher(server_pk)
+    print(server_pk)
+    #plain_text = 'TEntativa'
+    plain_text = cipher.decrypt(cipher_text1)
+    print('Texto recebido do Servidor!')
+    print(plain_text)
     
+    # 3.3 Opens Log file & writes
+    log_dir_path = os.path.join(os.getcwd(), 'log')
+    log_file_path = os.path.join(log_dir_path, 'log.txt')
+    if os.path.isdir(log_dir_path):
+        f = open(log_file_path, 'a+')
+        f.write(plain_text+'\n')
+        f.close()
+    else:
+        os.mkdir(log_dir_path)
+        f = open(log_file_path, 'a+')
+        f.write(plain_text)
+        f.close()
+
     # 4th sends to every client
     for con in connections:
         host = con[0]
@@ -228,33 +243,29 @@ def ReceiveMessages(host, secret):
 
 # Send Messages (Sever -> All Clients)
 def SendMessage(host, secret, message):
-    print('MENSAGEM!', message)
-    print(message)
     cipher = AESCipher(secret.encode())
     cipher_text = cipher.encrypt(message)
     hmac = MAC.generate(secret.encode(), message.encode())
     
     send = cipher_text + '::' + hmac
-    print(send.encode())
     host.send(send.encode())
 
     sys.exit()
 
 connections = []
 # Server
-def SettingUp(server_public_key_path, server_secret_key_path,host):
-    print('Handshake Phase')
+def SettingUp(server_public_key_path, server_secret_key_path, host, client):
+    print('Handshake Phase ', client)
     # Handshake
     secret = Handshake(host, server_public_key_path, server_secret_key_path)
     global connections
     connections.append((host,secret))
-    print(connections)
     while True:
         # Host and Client data for debugging
         # This thread is on listening until Server gets a new message
         # Now every time that server has a new message, he sends it to the n-client
         #  ReceiveMessage()
-        ReceiveMessages(host, secret)
+        ReceiveMessages(host, secret, server_public_key_path)
 
 if __name__ == "__main__":
     # IP and Port of Server
@@ -262,7 +273,7 @@ if __name__ == "__main__":
     host_PORT = 8080
     server_path = os.getcwd()
     keys_path = os.path.join(server_path, 'Keys')
-    print('sup')
+    
     # Checks if there is any pair of RSA keys
     if os.path.isdir(keys_path):
         public_key_path = os.path.join(keys_path, 'public.pem')
@@ -295,9 +306,7 @@ if __name__ == "__main__":
     
     while True:
         host, client = server.accept()
-        print(host)
-        print(client)
         # accept clients
         threading_accept = threading.Thread(
-            target=SettingUp, args=[public_key_path, secret_key_path,host])
+            target=SettingUp, args=[public_key_path, secret_key_path,host, client])
         threading_accept.start()
