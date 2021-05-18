@@ -10,7 +10,7 @@ from Crypto.Cipher import AES, PKCS1_OAEP
 
 # https://docs.python.org/3/library/binascii.html
 from binascii import hexlify
-
+import time
 
 # HASH https://pycryptodome.readthedocs.io/en/latest/src/hash/hash.html
 # AES implementation
@@ -141,12 +141,13 @@ def Handshake(host, public_key_path, secret_key_path):
     #      c
     #      ass
     c_pk = host.recv(2048)
+    time.sleep(0.5)
     digital_signature = host.recv(2048)
     client_pk_path = os.path.join(keys_path, 'public_client.pem')
     file = open(client_pk_path, "wb")
     file.write(c_pk)
     file.close()
-
+     
     # 2nd Server will check the veracity of recived digital signature: 
     #      veracity = DigitalSignature.verify(c_pk, ass, c_pk)
     if DigitalSignature.verify(c_pk, digital_signature, client_pk_path) == -1:    
@@ -157,7 +158,6 @@ def Handshake(host, public_key_path, secret_key_path):
         # Closes that thread
         sys.exit()
 
-    
     # 3rd Server will generate a simetric secret, secret, in hex
     #      Each char ===> 4 bytes
     #      So 128*4 = 512 bytes
@@ -165,21 +165,25 @@ def Handshake(host, public_key_path, secret_key_path):
     # AES with 128 bits == 3072 bits in RSA == 256 bits in ECC
     # 32 chars ===> 128 bits
     secret = binascii.b2a_hex(os.urandom(32)).hex()
-
+     
+      
     # 4th Server will cipher the secret, c, with RSA and sign it: 
     #      c = RSAe(secret, c_pk) & ass = Sign(SHA256(c), s_sk)
     cipher_text = RSACipher.encrypt(secret.encode(), client_pk_path)
+     
+      
     ass = DigitalSignature.sign(cipher_text, secret_key_path)
-
+     
+      
     host.send(cipher_text)
+    time.sleep(0.5)
     host.send(ass)
-
-    
+     
     # 5th Wait for confirmation from Client with AES
     received = host.recv(2048)
     received = received.decode()
     cipher_text, hmac = received.split('::')
-
+     
     cipher = AESCipher(secret.encode())
     plain_text = cipher.decrypt(cipher_text)
     if MAC.validate(secret.encode(), plain_text.encode(), hmac) == 1:
@@ -187,59 +191,74 @@ def Handshake(host, public_key_path, secret_key_path):
     else:
         # Not sys.exit, but thread will close
         sys.exit()
-    '''
-    Threads (?)
-    # Saves on threadpool -> client_IP + secret
-    threadpool.append(host, secret)
-    print(threadpool)
-    '''
+
     print('Feito handshake')
     return secret
 
 # Receive Messages (Client -> Server) 
 def ReceiveMessages(host, secret):
-    cipher_text = host.recv(2048)
-    # Decode with AES: m = AESd(c, s)
+    global connections
+    received = host.recv(2048)
+    # 1st split the c2 from hmac
+    received = received.decode()
+    cipher_text2, hmac = received.split('::')
+    
+    # 2nd check the hmac veracity
     cipher = AESCipher(secret.encode())
-    plain_text = cipher.decrypt(cipher_text)
-    print(plain_text)
-    hmac = host.recv(2048)
+    cipher_text1 = cipher.decrypt(cipher_text2)
+    
+    if MAC.validate(secret.encode(), cipher_text1.encode(), hmac) == 1:
+        pass
+    else:
+        # Not sys.exit(), but message cannot be shown!
+        print('O sistema vai sair!')
+        sys.exit()
 
-    # Calculate the MAC validation
-    i = MAC.validate(secret.encode(), plain_text.encode(), hmac)
-    print(i)
+    # 3rd decipher to plain_text & saves on log file
+    
+    # 4th sends to every client
+    for con in connections:
+        host = con[0]
+        secret = con[1]
+
+        # accept clients
+        threading_accept = threading.Thread(
+            target=SendMessage, args=[host, secret, cipher_text1])
+        threading_accept.start()
 
 # Send Messages (Sever -> All Clients)
-# Needs threadpool
 def SendMessage(host, secret, message):
+    print('MENSAGEM!', message)
+    print(message)
     cipher = AESCipher(secret.encode())
     cipher_text = cipher.encrypt(message)
-
-    host.send(cipher_text.encode())
-    
     hmac = MAC.generate(secret.encode(), message.encode())
-    host.send(hmac.encode())
+    
+    send = cipher_text + '::' + hmac
+    print(send.encode())
+    host.send(send.encode())
 
+    sys.exit()
+
+connections = []
 # Server
-def SettingUp(server_public_key_path, server_secret_key_path):
+def SettingUp(server_public_key_path, server_secret_key_path,host):
+    print('Handshake Phase')
+    # Handshake
+    secret = Handshake(host, server_public_key_path, server_secret_key_path)
+    global connections
+    connections.append((host,secret))
+    print(connections)
     while True:
         # Host and Client data for debugging
-        host, client = server.accept()
-        print(host)
-        print(client)
-        
-        print('Handshake Phase')
-        # Handshake
-        secret = Handshake(host, server_public_key_path, server_secret_key_path)
-        
         # This thread is on listening until Server gets a new message
         # Now every time that server has a new message, he sends it to the n-client
-        #SendMessage()
- 
+        #  ReceiveMessage()
+        ReceiveMessages(host, secret)
 
 if __name__ == "__main__":
     # IP and Port of Server
-    host_IP = "192.168.1.84"
+    host_IP = "192.168.255.112"
     host_PORT = 8080
     server_path = os.getcwd()
     keys_path = os.path.join(server_path, 'Keys')
@@ -274,7 +293,11 @@ if __name__ == "__main__":
     server.listen(0)
     # sys.exit()
     
-    # accept clients
-    threading_accept = threading.Thread(
-        target=SettingUp, args=[public_key_path, secret_key_path])
-    threading_accept.start()
+    while True:
+        host, client = server.accept()
+        print(host)
+        print(client)
+        # accept clients
+        threading_accept = threading.Thread(
+            target=SettingUp, args=[public_key_path, secret_key_path,host])
+        threading_accept.start()

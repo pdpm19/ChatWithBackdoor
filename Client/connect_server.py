@@ -5,7 +5,7 @@ from Crypto.Signature import PKCS1_v1_5
 from Crypto import Random
 from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import AES, PKCS1_OAEP
-
+import time
 # AES implementation
 # Credits: https://medium.com/quick-code/aes-implementation-in-python-a82f582f51c2
 class AESCipher(object):
@@ -17,7 +17,7 @@ class AESCipher(object):
     
     def encrypt(self, plain_text):
         plain_text = self.__pad(plain_text)
-        plain_text = plain_text.encode()
+        plain_text =plain_text.encode()
         iv = Random.new().read(self.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
         encrypted_text = cipher.encrypt(plain_text)
@@ -122,20 +122,52 @@ class RSAGenerator(object):
 # secret -> binary
 # server_pk -> binary
 # message -> str
-def SendMessage(server, secret, server_pk,message: str):
-# 1st will create c1 = AESe(message, SHA256(s_pk))
-    cipher = AESCipher(server)
+def SendMessage(server, secret, server_pk, message: str):
+    # 1st will create c1 = AESe(message, SHA256(s_pk))
+    print(message)
+    cipher = AESCipher(server_pk)
     cipher_text1 = cipher.encrypt(message)
+
+    # 2nd will do c2 = AESe(c1, secret)
     cipher = AESCipher(secret)
-    cipher_text2 = cipher.encrypt(cipher_text1.encode())
-    print(cipher_text2)
-# 2nd will do c2 = AESe(c1, secret)
-# 3rd will do hmac = HMAC(c2, secret)
-# 4th will send c2 & hmac to server
-#   c2::hmac
+    cipher_text2 = cipher.encrypt(cipher_text1)
+
+    # 3rd will do hmac = HMAC(c2, secret)
+    hmac = MAC.generate(secret, cipher_text1.encode())
+    
+    # 4th will send cipher_text2 & hmac to server
+    #   cipher_text2::hmac
+    send = cipher_text2 + '::' + hmac
+    server.send(send.encode())
+
+# Receive Message from Server
+# server ->
+# secret -> binary
+# server_pk -> binary
+# received (c2::hmac) -> binary
+def ReceiveMessage(secret, server_pk, received):
+    # 1st split the c2 from hmac
+    received = received.decode()
+    cipher_text2, hmac = received.split('::')
+    
+    # 2nd check the hmac veracity
+    cipher = AESCipher(secret)
+    cipher_text1 = cipher.decrypt(cipher_text2)
+    # Está a falhar aqui e não sei pq.... ¯\_(ツ)_/¯
+    if MAC.validate(secret, cipher_text1.encode(), hmac) == 1:
+        pass
+    else:
+        # Not sys.exit(), but message cannot be shown!
+        sys.exit()
+    # Se metermos isto no else, ele decifra a coisa bem.... ( ͡° ͜ʖ ͡°)
+    # 3rd decipher to plain_text
+    cipher = AESCipher(server_pk)
+    plain_text = cipher.decrypt(cipher_text1)
+    print('Texto recebido do Servidor!')
+    print(plain_text)
 
 if __name__ == "__main__":
-    host_IP = "192.168.1.84"
+    host_IP = "192.168.255.112"
     host_PORT = 8080
     client_path = os.getcwd()
     keys_path = os.path.join(client_path, 'Keys')
@@ -187,7 +219,7 @@ if __name__ == "__main__":
     ass = DigitalSignature.sign(client_pk, secret_key_path)
     print('aqui')
     server.send(client_pk)
-    print('ali')
+    time.sleep(0.5)
     server.send(ass)
     print('acolá')
     # 2nd Client will receive the symetric key, secret, plus the digital signature from Server
@@ -195,8 +227,9 @@ if __name__ == "__main__":
     #   secret = RSAd(c, c_sk) & veracity = verify(SHA256(c), s_pk)
     # secret ==> 256 chr ==> 256*4 = 1024 bits
     c = server.recv(1024)
+    time.sleep(0.5)
     digital_signature = server.recv(2048)
-
+    print('adeus')
     # 3rd veracity == True:
     #   Client starts to use the secret
     #   Communication is now done with AES
@@ -223,5 +256,33 @@ if __name__ == "__main__":
     # 5th AES communications until the end of connection
     # Client is on listening until new message from some other client
     # Or he sends a messageAESCipher(secret.encode())
-    print(server_pk)
-    SendMessage(server, secret, server_pk, 'Olá')
+    SendMessage(server, secret, server_pk, 'BROAS?')
+    while True:
+        received = server.recv(2048)
+        print(received)
+        print('Recebi msg, vou decifrar')
+        received = received.decode()
+        cipher_text2, hmac = received.split('::')
+        print(cipher_text2, hmac)
+        
+        # 2nd check the hmac veracity
+        cipher = AESCipher(secret)
+        cipher_text1 = cipher.decrypt(cipher_text2)
+        print('MESSAGEM!')
+        print('MAC:')
+        print(MAC.validate(secret, cipher_text1.encode(), hmac))
+        if MAC.validate(secret, cipher_text1.encode(), hmac) == 1:
+            print('VÁLIDO!')
+            pass
+        else:
+            print('pqp não valido!')
+            # 3rd decipher to plain_text
+            cipher = AESCipher(server_pk)
+            plain_text = cipher.decrypt(cipher_text1)
+            print('Texto recebido do Servidor!')
+            print(plain_text)
+                # Not sys.exit(), but message cannot be shown!
+            #sys.exit()
+
+        
+            

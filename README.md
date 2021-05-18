@@ -10,4 +10,4 @@
 - [x] Handshake with Asymmetric Encryption (RSA)
 - [ ] Exchange of messages with Symmetric Encryption (AES)
 - [ ] GUI connection with Client side security
-- [ ] Threads for $n$-client access to Server
+- [ ] Threads for n-clients access to Server
