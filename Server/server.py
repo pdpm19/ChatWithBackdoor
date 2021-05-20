@@ -1,6 +1,6 @@
-import signal
 # o que utilizamos
-import binascii, socket, threading, os, sys
+# https://docs.python.org/3/library/binascii.html
+import binascii, socket, threading, os, sys, time
 from base64 import b64decode, b64encode
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
@@ -8,9 +8,7 @@ from Crypto import Random
 from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import AES, PKCS1_OAEP
 
-# https://docs.python.org/3/library/binascii.html
-from binascii import hexlify
-import time
+
 
 # HASH https://pycryptodome.readthedocs.io/en/latest/src/hash/hash.html
 # AES implementation

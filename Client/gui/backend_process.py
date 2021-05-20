@@ -1,19 +1,13 @@
-import binascii
-import socket
-import threading
-import os
-import sys
+import binascii, socket, threading, os, sys, time
 from base64 import b64decode, b64encode
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto import Random
 from Crypto.Hash import SHA256, HMAC
 from Crypto.Cipher import AES, PKCS1_OAEP
-import time
+
 # AES implementation
 # Credits: https://medium.com/quick-code/aes-implementation-in-python-a82f582f51c2
-
-
 class AESCipher(object):
     def __init__(self, key):
         self.block_size = AES.block_size
@@ -52,8 +46,6 @@ class AESCipher(object):
 
 # RSA implementation
 # Credits: https://pythonhosted.org/pycrypto/Crypto.Cipher.PKCS1_OAEP-module.html
-
-
 class RSACipher(object):
     # Always use the public_key from destiny
     def encrypt(plain_text, key_path):
@@ -72,8 +64,6 @@ class RSACipher(object):
         return cipher.decrypt(cipher_text)
 
 # Digital Signature
-
-
 class DigitalSignature(object):
     def sign(message, secret_key_path):
         key = RSA.importKey(open(secret_key_path).read())
@@ -109,8 +99,6 @@ class MAC(object):
             return -1
 
 # Generate RSA Keys
-
-
 class RSAGenerator(object):
     def __init__(self, keys_path):
         self.keys_path = keys_path
@@ -137,8 +125,6 @@ class RSAGenerator(object):
 # secret -> binary
 # server_pk -> binary
 # message -> str
-
-
 def SendMessage(server, secret, server_pk, message: str):
     # 1st will create c1 = AESe(message, SHA256(s_pk))
     cipher = AESCipher(server_pk)
@@ -161,8 +147,6 @@ def SendMessage(server, secret, server_pk, message: str):
 # secret -> binary
 # server_pk -> binary
 # received (c2::hmac) -> binary
-
-
 def ReceiveMessage(secret, server_pk, received):
     # 1st split the c2 from hmac
     received = received.decode()
@@ -182,7 +166,8 @@ def ReceiveMessage(secret, server_pk, received):
     print(plain_text)
     return plain_text
 
-def ConServer():
+def ConnServer():
+    # Host IP + Port needs to match the IP and Port from server.py
     host_IP = "192.168.255.112"
     host_PORT = 8080
     client_path = os.getcwd()
@@ -225,7 +210,7 @@ def ConServer():
 
     client_pk = RSA.importKey(open(public_key_path).read())
     client_pk = client_pk.exportKey('PEM')
-    client_sk = RSA.importKey(open(secret_key_path).read())
+    # client_sk = RSA.importKey(open(secret_key_path).read())
 
     server_pk = RSA.importKey(open(server_pk_path).read())
     server_pk = server_pk.exportKey('PEM')
@@ -261,13 +246,25 @@ def ConServer():
     hmac = MAC.generate(secret, message_flag.encode())
     send = cipher_text + "::" + hmac
     server.send(send.encode())
-
+    
     # 5th AES communications until the end of connection
-    # Client is on listening until new message from some other client
-    # Or he sends a messageAESCipher(secret.encode())
-    SendMessage(server, secret, server_pk, 'not')
-    while True:
-        received = server.recv(2048)
-        ReceiveMessage(secret, server_pk, received)
+    # E.g. of Client-Server message
+    # SendMessage(server, secret, server_pk, 'Hola')
+    return server, secret, server_pk
 
-ConServer()
+# Client is on listening until new message from some other client
+def ListeningMessages(server, secret, server_pk):
+    received = server.recv(2048)
+    return ReceiveMessage(secret, server_pk, received)
+# Args for Listening:
+# server ->
+# secret -> binary
+# server_pk -> binary (standard)
+# ListeningMessages(server, secret, server_pk)
+
+# Args for Send:
+# server ->
+# secret ->
+# server_pk ->
+# message -> str
+# SendMessage(server, secret, server_pk, message: str)

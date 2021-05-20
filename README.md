@@ -8,6 +8,8 @@
 ## To Do
 - [x] GUI for Client
 - [x] Handshake with Asymmetric Encryption (RSA)
-- [ ] Exchange of messages with Symmetric Encryption (AES)
-- [ ] GUI connection with Client side security
-- [ ] Threads for n-clients access to Server
+- [x] Exchange of messages with Symmetric Encryption (AES)
+- [x] GUI connection with Security functions
+- [x] GUI sends message to Server
+- [ ] GUI listens to messsages from Server
+- [ ] Threads for n-clients access to Server (needs to fix broken pipe error)

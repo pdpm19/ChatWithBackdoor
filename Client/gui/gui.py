@@ -1,12 +1,16 @@
-
-import os
-import sys
+import os, sys, threading, socket
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
+# My imports
+from backend_process import SendMessage, ListeningMessages
+
 # Global Variables
 guiPath = None
+secret = None
+server = None
+server_pk = None
 
 # GUI
 class GUI(QMainWindow):
@@ -178,6 +182,7 @@ class GUI(QMainWindow):
             # If login is possible, Clien is able to send messages
             self.stacked.setCurrentIndex(3)
             # SOME CODE GOES HERE
+            
             # If login is not possible, Error message....
 
         # Warns if one or other field are empty
@@ -219,18 +224,16 @@ class GUI(QMainWindow):
     # Send Message phase
     def ChatPhase(self):
         if self.messageField.text():
+            message = self.usernameLoginField.text() + ': '+ self.messageField.text()
+            ClientMessage(message)
             self.chatField.insertPlainText('eu: ' + self.messageField.text() + '\n')
         else:
             warning = QMessageBox()
             warning.setIcon(QMessageBox.Warning)
             warning.setWindowTitle('Warning')
             warning.setText('Sending Failed')
-            if self.messageField.text() and not self.chatField.toPlainText():
-                warning.setInformativeText('Ups! There is no message...')
-            elif not self.messageField.text() and self.chatField.toPlainText():
-                warning.setInformativeText('Ups! There is no reciptient... :o')
-            else:
-                warning.setInformativeText('Ups! All fields are empty... :/')
+            
+            warning.setInformativeText('Ups! There is no message...')
             warning.exec_()
     
     # ---------------------------------
@@ -262,10 +265,23 @@ class GUI(QMainWindow):
 
 # Calls the GUI
 def GUILoad(args):
-    global guiPath
-    guiPath = args
+    global guiPath, server, secret, server_pk
+    # paths = args
+    guiPath = args[0]
+    server = args[1]
+    secret = args[2]
+    server_pk = args[3]
 
     app = QApplication([])
     window = GUI(600, 400, 'ChatWithBackdoor')
     window.show()
     app.exec()
+
+# Calls the SendMessage
+def ClientMessage(message: str):
+    global server, secret, server_pk
+    print('Vou enviar a seguinte mesagem', message)
+    threading_accept = threading.Thread(
+        target=SendMessage, args=[server, secret, server_pk, message]
+    )
+    threading_accept.start()
