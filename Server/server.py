@@ -1,6 +1,6 @@
 # o que utilizamos
 # https://docs.python.org/3/library/binascii.html
-import binascii, socket, threading, os, sys, time
+import binascii, socket, threading, os, sys, time, errno
 from base64 import b64decode, b64encode
 from Crypto.PublicKey import RSA
 from Crypto.Signature import PKCS1_v1_5
@@ -213,7 +213,7 @@ def ReceiveMessages(host, secret, server_pk_path):
     print(server_pk)
     #plain_text = 'TEntativa'
     plain_text = cipher.decrypt(cipher_text1)
-    print('Texto recebido do Servidor!')
+    print('Texto recebido do Cliente!')
     print(plain_text)
     
     # 3.3 Opens Log file & writes
@@ -233,11 +233,17 @@ def ReceiveMessages(host, secret, server_pk_path):
     for con in connections:
         host = con[0]
         secret = con[1]
+        try:
+            # accept clients
+            threading_accept = threading.Thread(
+                target=SendMessage, args=[host, secret, cipher_text1])
+            threading_accept.start()
+        except IOError as e:
+            print('apanhei algo!')
+            if e.errno == errno.EPIPE:
+                print('con desligada')
+                connections.pop(con)
 
-        # accept clients
-        threading_accept = threading.Thread(
-            target=SendMessage, args=[host, secret, cipher_text1])
-        threading_accept.start()
 
 # Send Messages (Sever -> All Clients)
 def SendMessage(host, secret, message):
@@ -300,7 +306,6 @@ if __name__ == "__main__":
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((host_IP, host_PORT))
     server.listen(0)
-    # sys.exit()
     
     while True:
         host, client = server.accept()

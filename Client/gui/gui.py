@@ -169,6 +169,7 @@ class GUI(QMainWindow):
         self.chatLayout.addWidget(message)
         self.chatLayout.addWidget(chatBtns)
         self.chatWidgets.setLayout(self.chatLayout)
+        
     
     # --------------------------------------------------
     # Falta a parte da Segurança e Conexão com o Servidor
@@ -285,3 +286,12 @@ def ClientMessage(message: str):
         target=SendMessage, args=[server, secret, server_pk, message]
     )
     threading_accept.start()
+
+# Calls the Listening
+def ServerMessage(server, secret, server_pk):
+    print('Aqui')
+    threading_accept = threading.Thread(
+        target=ListeningMessages, args=[server, secret, server_pk]
+    )
+    threading_accept.start()
+    print('ali')
