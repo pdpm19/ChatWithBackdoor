@@ -5,6 +5,9 @@ sudo apt install python3.10 openssl
 wget https://bootstrap.pypa.io/get-pip.py
 python3.10 get-pip.py
 
+# install PIP
+sudo apt install python3-pip
+
 # PIP packages needed (so far)
-pip install cryptography
-pip install PyQt5
+pip3 install cryptography
+pip3 install PyQt5

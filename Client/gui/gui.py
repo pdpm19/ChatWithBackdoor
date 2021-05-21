@@ -11,6 +11,7 @@ guiPath = None
 secret = None
 server = None
 server_pk = None
+msg = None
 
 # GUI
 class GUI(QMainWindow):
@@ -55,6 +56,8 @@ class GUI(QMainWindow):
         self.stacked.addWidget(self.registerWidgets)
         self.stacked.addWidget(self.chatWidgets)
         self.setCentralWidget(self.stacked)
+
+        self.threadpool = QThreadPool()
 
     # Homepage
     def HomepageUI(self):
@@ -169,6 +172,11 @@ class GUI(QMainWindow):
         self.chatLayout.addWidget(message)
         self.chatLayout.addWidget(chatBtns)
         self.chatWidgets.setLayout(self.chatLayout)
+        # Opens the thread to receive msg from others clientes
+        thread_msg = threading.Thread(
+            target=self.Listening, args=[]
+        )
+        thread_msg.start()
         
     
     # --------------------------------------------------
@@ -224,6 +232,7 @@ class GUI(QMainWindow):
 
     # Send Message phase
     def ChatPhase(self):
+        
         if self.messageField.text():
             message = self.usernameLoginField.text() + ': '+ self.messageField.text()
             ClientMessage(message)
@@ -237,6 +246,19 @@ class GUI(QMainWindow):
             warning.setInformativeText('Ups! There is no message...')
             warning.exec_()
     
+    def Listening(self):
+        while True:
+            received = ListeningMessages(server, secret, server_pk)
+            user = ''
+            for i in received:
+                if i == ':':
+                    break
+                user = user + i
+
+            if user == self.usernameLoginField.text():
+                received = None
+            else:
+                self.chatField.insertPlainText(received + '\n')
     # ---------------------------------
     # ACABA AQUI
     # ---------------------------------
@@ -261,6 +283,8 @@ class GUI(QMainWindow):
         self.passwordRegisterField.clear()
         self.passwordConfirmationRegisterField.clear()
     def ChatFieldsCleaner(self):
+        global msg
+        msg = None
         self.messageField.clear()
         self.chatField.clear()
 
@@ -281,17 +305,7 @@ def GUILoad(args):
 # Calls the SendMessage
 def ClientMessage(message: str):
     global server, secret, server_pk
-    print('Vou enviar a seguinte mesagem', message)
     threading_accept = threading.Thread(
         target=SendMessage, args=[server, secret, server_pk, message]
     )
     threading_accept.start()
-
-# Calls the Listening
-def ServerMessage(server, secret, server_pk):
-    print('Aqui')
-    threading_accept = threading.Thread(
-        target=ListeningMessages, args=[server, secret, server_pk]
-    )
-    threading_accept.start()
-    print('ali')

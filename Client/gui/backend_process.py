@@ -162,13 +162,11 @@ def ReceiveMessage(secret, server_pk, received):
     # 3rd decipher to plain_text
     cipher = AESCipher(server_pk)
     plain_text = cipher.decrypt(cipher_text1)
-    print('Texto recebido do Servidor!')
-    print(plain_text)
     return plain_text
 
 def ConnServer():
     # Host IP + Port needs to match the IP and Port from server.py
-    host_IP = "192.168.255.112"
+    host_IP = "192.168.255.4"
     host_PORT = 8080
     client_path = os.getcwd()
     keys_path = os.path.join(client_path, 'Keys')
@@ -180,7 +178,7 @@ def ConnServer():
         secret_key_path = os.path.join(keys_path, 'secret.pem')
         server_pk_path = os.path.join(keys_path, 'public_server.pem')
         if not os.path.isfile(server_pk_path):
-            print('Client nees to have server_pk.pem from trusty source!')
+            print('Client needs to have server_pk.pem from trusty source!')
             sys.exit()
         # Needs to check if keys are there
         if os.path.isfile(public_key_path) and os.path.isfile(secret_key_path):
@@ -254,8 +252,11 @@ def ConnServer():
 
 # Client is on listening until new message from some other client
 def ListeningMessages(server, secret, server_pk):
-    received = server.recv(2048)
-    return ReceiveMessage(secret, server_pk, received)
+    while True:
+        received = server.recv(2048)
+        ReceiveMessage(secret, server_pk, received)
+        return ReceiveMessage(secret, server_pk, received)
+
 # Args for Listening:
 # server ->
 # secret -> binary

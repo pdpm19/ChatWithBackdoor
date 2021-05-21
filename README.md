@@ -11,5 +11,7 @@
 - [x] Exchange of messages with Symmetric Encryption (AES)
 - [x] GUI connection with Security functions
 - [x] GUI sends message to Server
-- [ ] GUI listens to messsages from Server
-- [ ] Threads for n-clients access to Server (needs to fix broken pipe error)
+- [x] GUI listens to messsages from Server
+- [x] Threads for n-clients access to Server (needs to fix broken pipe error)
+- [ ] Register Client
+- [ ] Login Client

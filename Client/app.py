@@ -19,3 +19,4 @@ if __name__ == '__main__':
     paths = [guiPath, server, secret, server_pk]
     GUILoad(paths)
     
+sys.exit()

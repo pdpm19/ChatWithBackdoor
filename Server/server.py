@@ -207,15 +207,12 @@ def ReceiveMessages(host, secret, server_pk_path):
     # 3.1 Reads Server PK
     server_pk = RSA.importKey(open(server_pk_path).read())
     server_pk = server_pk.exportKey('PEM')
-    print(cipher_text1)
+
     # 3.2 Decipher
     cipher = AESCipher(server_pk)
-    print(server_pk)
     #plain_text = 'TEntativa'
     plain_text = cipher.decrypt(cipher_text1)
-    print('Texto recebido do Cliente!')
-    print(plain_text)
-    
+
     # 3.3 Opens Log file & writes
     log_dir_path = os.path.join(os.getcwd(), 'log')
     log_file_path = os.path.join(log_dir_path, 'log.txt')
